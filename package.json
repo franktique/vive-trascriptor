@@ -1,0 +1,59 @@
+{
+  "name": "whisper-transcriber",
+  "version": "1.0.0",
+  "description": "Real-time audio transcription with Whisper in a transparent overlay window",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "dist": "electron-builder --publish=never",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "keywords": [
+    "electron",
+    "whisper",
+    "transcription",
+    "real-time",
+    "audio",
+    "speech-to-text",
+    "srt",
+    "subtitles"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "nodejs-whisper": "^0.1.13",
+    "node-record-lpcm16": "^1.0.1",
+    "wav": "^1.0.2",
+    "electron-store": "^10.0.0"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.whispertranscriber.app",
+    "productName": "Whisper Transcriber",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "models/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": "dmg"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whisper Transcriber Overlay</title>
+    <link rel="stylesheet" href="overlay.css">
+</head>
+<body>
+    <div class="overlay-container">
+        <div class="drag-handle">
+            <div class="drag-area"></div>
+            <div class="controls">
+                <button id="show-controls-btn" title="Show Controls">⚙️</button>
+                <button id="minimize-btn" title="Minimize">−</button>
+                <button id="close-btn" title="Close">×</button>
+            </div>
+        </div>
+        
+        <div class="transcript-container">
+            <div id="transcript-display">
+                <div class="status-indicator">
+                    <span id="status-text">Ready to transcribe</span>
+                    <div id="recording-indicator" class="hidden"></div>
+                </div>
+                <div id="transcript-text"></div>
+                <div id="current-text" class="current-transcription"></div>
+            </div>
+        </div>
+        
+        <div class="resize-handles">
+            <div class="resize-handle resize-right"></div>
+            <div class="resize-handle resize-bottom"></div>
+            <div class="resize-handle resize-bottom-right"></div>
+        </div>
+    </div>
+    
+    <script src="overlay.js"></script>
+</body>
+</html>
