@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onTranscriptionData: (callback) => ipcRenderer.on('transcription-data', callback),
   onTranscriptionError: (callback) => ipcRenderer.on('transcription-error', callback),
   onTranscriptionStatus: (callback) => ipcRenderer.on('transcription-status', callback),
+  onAudioLevel: (callback) => ipcRenderer.on('audio-level', callback),
   
   // Remove listeners
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
@@ -31,6 +32,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Settings
   getSetting: (key) => ipcRenderer.invoke('get-setting', key),
   setSetting: (key, value) => ipcRenderer.invoke('set-setting', key, value),
+
+  // Theme management
+  setTheme: (theme) => ipcRenderer.invoke('set-theme', theme),
+  getTheme: () => ipcRenderer.invoke('get-theme'),
+  onThemeChanged: (callback) => ipcRenderer.on('theme-changed', callback),
+
+  // Model management
+  getModelStatus: (modelName) => ipcRenderer.invoke('get-model-status', modelName),
+  downloadModel: (modelName) => ipcRenderer.invoke('download-model', modelName),
+  deleteModel: (modelName) => ipcRenderer.invoke('delete-model', modelName),
+  listModels: () => ipcRenderer.invoke('list-models'),
+  
+  // Model download events
+  onModelDownloadProgress: (callback) => ipcRenderer.on('model-download-progress', callback),
+  onModelDownloadComplete: (callback) => ipcRenderer.on('model-download-complete', callback),
+  onModelDownloadError: (callback) => ipcRenderer.on('model-download-error', callback),
 
   // Platform info
   platform: process.platform

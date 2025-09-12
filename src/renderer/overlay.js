@@ -17,12 +17,36 @@ class WhisperOverlay {
         this.transcriptDisplay = document.getElementById('transcript-text');
         this.currentText = document.getElementById('current-text');
         
+        // Recording controls
+        this.startRecordingBtn = document.getElementById('start-recording-btn');
+        this.stopRecordingBtn = document.getElementById('stop-recording-btn');
+        this.pauseRecordingBtn = document.getElementById('pause-recording-btn');
+        
+        // Window controls
         this.showControlsBtn = document.getElementById('show-controls-btn');
         this.minimizeBtn = document.getElementById('minimize-btn');
         this.closeBtn = document.getElementById('close-btn');
+        
+        // Initialize recording state
+        this.recordingStartTime = null;
+        this.recordingTimer = null;
+        this.isPaused = false;
     }
 
     setupEventListeners() {
+        // Recording controls
+        this.startRecordingBtn.addEventListener('click', () => {
+            this.startRecording();
+        });
+
+        this.stopRecordingBtn.addEventListener('click', () => {
+            this.stopRecording();
+        });
+
+        this.pauseRecordingBtn.addEventListener('click', () => {
+            this.pauseRecording();
+        });
+
         // Window controls
         this.showControlsBtn.addEventListener('click', () => {
             window.electronAPI.showControls();
@@ -58,8 +82,15 @@ class WhisperOverlay {
             this.handleTranscriptionStatus(status);
         });
 
-        // Auto-start transcription on load
-        this.startTranscription();
+        // Theme management
+        if (window.electronAPI.onThemeChanged) {
+            window.electronAPI.onThemeChanged((event, theme) => {
+                this.applyTheme(theme);
+            });
+        }
+
+        // Load initial theme
+        this.loadTheme();
     }
 
     async initializeTranscription() {
@@ -83,61 +114,130 @@ class WhisperOverlay {
         }
     }
 
-    async startTranscription() {
+    async startRecording() {
         if (this.isRecording) return;
 
         try {
             this.isRecording = true;
+            this.isPaused = false;
+            this.recordingStartTime = Date.now();
             this.startTime = Date.now();
             this.transcriptData = [];
             this.srtCounter = 1;
             
-            this.updateStatus('Starting transcription...', 'starting');
+            // Update button states
+            this.startRecordingBtn.disabled = true;
+            this.startRecordingBtn.classList.add('recording');
+            this.stopRecordingBtn.disabled = false;
+            this.pauseRecordingBtn.disabled = false;
             
-            // For now, we'll simulate starting transcription
-            // In a real implementation, this would trigger the Whisper transcription
+            this.updateStatus('Starting recording...', 'starting');
+            
             await window.electronAPI.startTranscription();
             
             this.updateStatus('Recording and transcribing...', 'recording');
             this.recordingIndicator.classList.remove('hidden');
-            
-            // Simulate real-time transcription for demonstration
-            this.simulateTranscription();
+            this.startRecordingTimer();
             
         } catch (error) {
-            console.error('Error starting transcription:', error);
-            this.updateStatus('Failed to start transcription', 'error');
+            console.error('Error starting recording:', error);
+            this.updateStatus('Failed to start recording', 'error');
             this.isRecording = false;
+            this.resetButtonStates();
         }
     }
 
-    async stopTranscription() {
+    async stopRecording() {
         if (!this.isRecording) return;
 
         try {
             this.isRecording = false;
+            this.isPaused = false;
             
             await window.electronAPI.stopTranscription();
             
-            this.updateStatus('Transcription stopped', 'stopped');
+            this.updateStatus('Recording stopped', 'stopped');
             this.recordingIndicator.classList.add('hidden');
             this.currentText.textContent = '';
+            this.stopRecordingTimer();
+            this.resetButtonStates();
             
             if (this.transcriptData.length > 0) {
                 this.promptSaveTranscript();
             }
         } catch (error) {
-            console.error('Error stopping transcription:', error);
-            this.updateStatus('Error stopping transcription', 'error');
+            console.error('Error stopping recording:', error);
+            this.updateStatus('Error stopping recording', 'error');
+        }
+    }
+
+    async pauseRecording() {
+        if (!this.isRecording) return;
+
+        try {
+            this.isPaused = !this.isPaused;
+            
+            if (this.isPaused) {
+                await window.electronAPI.pauseTranscription();
+                this.updateStatus('Recording paused', 'paused');
+                this.pauseRecordingBtn.textContent = '▶️';
+                this.pauseRecordingBtn.title = 'Resume Recording';
+                this.stopRecordingTimer();
+            } else {
+                await window.electronAPI.resumeTranscription();
+                this.updateStatus('Recording resumed', 'recording');
+                this.pauseRecordingBtn.textContent = '⏸️';
+                this.pauseRecordingBtn.title = 'Pause Recording';
+                this.startRecordingTimer();
+            }
+        } catch (error) {
+            console.error('Error pausing recording:', error);
+            this.updateStatus('Error pausing recording', 'error');
         }
     }
 
     toggleRecording() {
         if (this.isRecording) {
-            this.stopTranscription();
+            this.stopRecording();
         } else {
-            this.startTranscription();
+            this.startRecording();
         }
+    }
+
+    resetButtonStates() {
+        this.startRecordingBtn.disabled = false;
+        this.startRecordingBtn.classList.remove('recording');
+        this.stopRecordingBtn.disabled = true;
+        this.pauseRecordingBtn.disabled = true;
+        this.pauseRecordingBtn.textContent = '⏸️';
+        this.pauseRecordingBtn.title = 'Pause Recording';
+    }
+
+    startRecordingTimer() {
+        this.recordingTimer = setInterval(() => {
+            if (this.recordingStartTime && !this.isPaused) {
+                const elapsed = Date.now() - this.recordingStartTime;
+                this.updateRecordingTime(elapsed);
+            }
+        }, 1000);
+    }
+
+    stopRecordingTimer() {
+        if (this.recordingTimer) {
+            clearInterval(this.recordingTimer);
+            this.recordingTimer = null;
+        }
+    }
+
+    updateRecordingTime(elapsed) {
+        const hours = Math.floor(elapsed / 3600000);
+        const minutes = Math.floor((elapsed % 3600000) / 60000);
+        const seconds = Math.floor((elapsed % 60000) / 1000);
+        
+        const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        // Update title or status to show recording time (optional)
+        document.title = this.isRecording ? `Recording: ${timeString} - Whisper Transcriber` : 'Whisper Transcriber Overlay';
     }
 
     handleTranscriptionData(data) {
@@ -202,13 +302,17 @@ class WhisperOverlay {
     }
 
     formatSRTTime(timestamp) {
-        const date = new Date(timestamp);
-        const hours = date.getUTCHours().toString().padStart(2, '0');
-        const minutes = date.getUTCMinutes().toString().padStart(2, '0');
-        const seconds = date.getUTCSeconds().toString().padStart(2, '0');
-        const milliseconds = date.getUTCMilliseconds().toString().padStart(3, '0');
+        // Convert timestamp to relative time from recording start
+        const recordingElapsed = timestamp - this.startTime;
+        const totalSeconds = Math.floor(recordingElapsed / 1000);
+        const milliseconds = recordingElapsed % 1000;
         
-        return `${hours}:${minutes}:${seconds},${milliseconds}`;
+        const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
+        const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
+        const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+        const ms = milliseconds.toString().padStart(3, '0');
+        
+        return `${hours}:${minutes}:${seconds},${ms}`;
     }
 
     async saveTranscript() {
@@ -247,58 +351,27 @@ class WhisperOverlay {
         this.updateStatus('Transcript cleared', 'info');
     }
 
-    // Simulation method for demonstration (remove in production)
-    simulateTranscription() {
-        if (!this.isRecording) return;
-
-        const sampleTexts = [
-            "Hello, this is a test of the real-time transcription system.",
-            "The weather today is quite pleasant and sunny.",
-            "I'm demonstrating the Whisper transcription overlay window.",
-            "This text should appear with proper timestamps in the SRT file.",
-            "The transparency can be adjusted using the control panel."
-        ];
-
-        let textIndex = 0;
-        const simulationInterval = setInterval(() => {
-            if (!this.isRecording || textIndex >= sampleTexts.length) {
-                clearInterval(simulationInterval);
-                return;
+    // Theme management
+    async loadTheme() {
+        try {
+            if (window.electronAPI.getTheme) {
+                const theme = await window.electronAPI.getTheme();
+                this.applyTheme(theme);
             }
-
-            const now = Date.now();
-            const startTime = now;
-            const endTime = now + 3000; // 3 second duration
-
-            // Simulate partial transcription
-            setTimeout(() => {
-                if (this.isRecording) {
-                    this.handleTranscriptionData({
-                        text: sampleTexts[textIndex],
-                        startTime,
-                        endTime,
-                        confidence: 0.85 + Math.random() * 0.15,
-                        isFinal: false
-                    });
-                }
-            }, 1000);
-
-            // Simulate final transcription
-            setTimeout(() => {
-                if (this.isRecording) {
-                    this.handleTranscriptionData({
-                        text: sampleTexts[textIndex],
-                        startTime,
-                        endTime,
-                        confidence: 0.85 + Math.random() * 0.15,
-                        isFinal: true
-                    });
-                }
-            }, 2500);
-
-            textIndex++;
-        }, 4000);
+        } catch (error) {
+            console.error('Error loading theme:', error);
+        }
     }
+
+    applyTheme(theme) {
+        if (theme === 'system') {
+            const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', systemTheme);
+        } else {
+            document.documentElement.setAttribute('data-theme', theme);
+        }
+    }
+
 }
 
 // Initialize overlay when DOM is loaded
