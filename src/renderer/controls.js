@@ -1,8 +1,5 @@
 class ControlPanel {
     constructor() {
-        this.isRecording = false;
-        this.recordingStartTime = null;
-        this.recordingTimer = null;
         this.stats = {
             totalWords: 0,
             totalTime: 0,
@@ -16,6 +13,9 @@ class ControlPanel {
     }
 
     initializeElements() {
+        // Theme controls
+        this.themeSelect = document.getElementById('theme-select');
+        
         // Opacity controls
         this.opacitySlider = document.getElementById('opacity-slider');
         this.opacityValue = document.getElementById('opacity-value');
@@ -24,12 +24,6 @@ class ControlPanel {
         this.fontSizeSlider = document.getElementById('font-size');
         this.fontSizeValue = document.getElementById('font-size-value');
         
-        // Recording controls
-        this.startRecordingBtn = document.getElementById('start-recording');
-        this.stopRecordingBtn = document.getElementById('stop-recording');
-        this.pauseRecordingBtn = document.getElementById('pause-recording');
-        this.recordingStatus = document.getElementById('recording-status');
-        this.recordingTime = document.getElementById('recording-time');
         
         // Audio controls
         this.microphoneSelect = document.getElementById('microphone-select');
@@ -40,6 +34,17 @@ class ControlPanel {
         // Whisper settings
         this.modelSelect = document.getElementById('model-select');
         this.languageSelect = document.getElementById('language-select');
+        
+        // Model download controls
+        this.modelStatus = document.getElementById('model-status');
+        this.modelStatusText = document.getElementById('model-status-text');
+        this.downloadModelBtn = document.getElementById('download-model-btn');
+        this.downloadProgress = document.getElementById('download-progress');
+        this.downloadProgressBar = document.getElementById('download-progress-bar');
+        this.downloadStatus = document.getElementById('download-status');
+        this.downloadSpeed = document.getElementById('download-speed');
+        this.downloadPercent = document.getElementById('download-percent');
+        this.downloadEta = document.getElementById('download-eta');
         
         // Export controls
         this.saveTranscriptBtn = document.getElementById('save-transcript');
@@ -53,6 +58,11 @@ class ControlPanel {
     }
 
     setupEventListeners() {
+        // Theme control
+        this.themeSelect.addEventListener('change', (e) => {
+            this.updateTheme(e.target.value);
+        });
+
         // Opacity control
         this.opacitySlider.addEventListener('input', (e) => {
             const opacity = parseFloat(e.target.value);
@@ -65,18 +75,6 @@ class ControlPanel {
             this.updateFontSize(fontSize);
         });
 
-        // Recording controls
-        this.startRecordingBtn.addEventListener('click', () => {
-            this.startRecording();
-        });
-
-        this.stopRecordingBtn.addEventListener('click', () => {
-            this.stopRecording();
-        });
-
-        this.pauseRecordingBtn.addEventListener('click', () => {
-            this.pauseRecording();
-        });
 
         // Audio sensitivity
         this.sensitivitySlider.addEventListener('input', (e) => {
@@ -92,10 +90,16 @@ class ControlPanel {
         // Whisper settings
         this.modelSelect.addEventListener('change', (e) => {
             this.updateModel(e.target.value);
+            this.checkModelStatus(e.target.value);
         });
 
         this.languageSelect.addEventListener('change', (e) => {
             this.updateLanguage(e.target.value);
+        });
+
+        // Model download
+        this.downloadModelBtn.addEventListener('click', () => {
+            this.downloadModel();
         });
 
         // Export controls
@@ -116,12 +120,16 @@ class ControlPanel {
             this.updateRecordingStatus(status);
         });
 
+        // Listen for real-time audio level updates
+        if (window.electronAPI.onAudioLevel) {
+            window.electronAPI.onAudioLevel((event, level) => {
+                this.updateAudioLevel(level);
+            });
+        }
+
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
-            if (e.key === ' ' && e.ctrlKey) {
-                e.preventDefault();
-                this.toggleRecording();
-            } else if (e.key === 's' && e.metaKey) {
+            if (e.key === 's' && e.metaKey) {
                 e.preventDefault();
                 this.saveTranscript();
             }
@@ -129,10 +137,44 @@ class ControlPanel {
 
         // Simulate audio level monitoring
         this.startAudioLevelMonitoring();
+
+        // Listen for model download progress
+        if (window.electronAPI.onModelDownloadProgress) {
+            window.electronAPI.onModelDownloadProgress((event, progress) => {
+                this.updateDownloadProgress(progress);
+            });
+        }
+
+        // Listen for model download completion
+        if (window.electronAPI.onModelDownloadComplete) {
+            window.electronAPI.onModelDownloadComplete((event, result) => {
+                console.log('Model download completed:', result);
+                this.downloadModelBtn.disabled = false;
+                this.downloadModelBtn.textContent = 'Download';
+                this.downloadProgress.style.display = 'none';
+                this.checkModelStatus(this.modelSelect.value);
+            });
+        }
+
+        // Listen for model download errors
+        if (window.electronAPI.onModelDownloadError) {
+            window.electronAPI.onModelDownloadError((event, error) => {
+                console.error('Model download failed:', error);
+                this.downloadModelBtn.disabled = false;
+                this.downloadModelBtn.textContent = 'Download';
+                this.downloadProgress.style.display = 'none';
+                this.updateRecordingStatus({ message: `Download failed: ${error.error}`, type: 'error' });
+            });
+        }
     }
 
     async loadSettings() {
         try {
+            // Load theme setting
+            const theme = await window.electronAPI.getSetting('theme') || 'light';
+            this.themeSelect.value = theme;
+            this.applyTheme(theme);
+
             // Load opacity setting
             const opacity = await window.electronAPI.getOverlayOpacity();
             this.opacitySlider.value = opacity;
@@ -147,8 +189,9 @@ class ControlPanel {
             this.sensitivitySlider.value = sensitivity;
             this.updateSensitivityDisplay(sensitivity);
 
-            const model = await window.electronAPI.getSetting('whisperModel') || 'base';
+            const model = await window.electronAPI.getSetting('whisperModel') || 'base.en';
             this.modelSelect.value = model;
+            this.checkModelStatus(model);
 
             const language = await window.electronAPI.getSetting('language') || 'en';
             this.languageSelect.value = language;
@@ -246,96 +289,6 @@ class ControlPanel {
         }
     }
 
-    async startRecording() {
-        if (this.isRecording) return;
-
-        try {
-            this.isRecording = true;
-            this.recordingStartTime = Date.now();
-            
-            await window.electronAPI.startTranscription();
-            
-            this.startRecordingBtn.disabled = true;
-            this.stopRecordingBtn.disabled = false;
-            this.pauseRecordingBtn.disabled = false;
-            
-            this.updateRecordingStatus({ message: 'Recording...', type: 'recording' });
-            this.startRecordingTimer();
-            
-        } catch (error) {
-            console.error('Error starting recording:', error);
-            this.isRecording = false;
-            this.updateRecordingStatus({ message: 'Error starting recording', type: 'error' });
-        }
-    }
-
-    async stopRecording() {
-        if (!this.isRecording) return;
-
-        try {
-            this.isRecording = false;
-            
-            await window.electronAPI.stopTranscription();
-            
-            this.startRecordingBtn.disabled = false;
-            this.stopRecordingBtn.disabled = true;
-            this.pauseRecordingBtn.disabled = true;
-            
-            this.updateRecordingStatus({ message: 'Stopped', type: 'stopped' });
-            this.stopRecordingTimer();
-            
-        } catch (error) {
-            console.error('Error stopping recording:', error);
-            this.updateRecordingStatus({ message: 'Error stopping recording', type: 'error' });
-        }
-    }
-
-    async pauseRecording() {
-        try {
-            await window.electronAPI.pauseTranscription();
-            this.updateRecordingStatus({ message: 'Paused', type: 'paused' });
-        } catch (error) {
-            console.error('Error pausing recording:', error);
-        }
-    }
-
-    toggleRecording() {
-        if (this.isRecording) {
-            this.stopRecording();
-        } else {
-            this.startRecording();
-        }
-    }
-
-    startRecordingTimer() {
-        this.recordingTimer = setInterval(() => {
-            if (this.recordingStartTime) {
-                const elapsed = Date.now() - this.recordingStartTime;
-                this.updateRecordingTime(elapsed);
-            }
-        }, 1000);
-    }
-
-    stopRecordingTimer() {
-        if (this.recordingTimer) {
-            clearInterval(this.recordingTimer);
-            this.recordingTimer = null;
-        }
-    }
-
-    updateRecordingTime(elapsed) {
-        const hours = Math.floor(elapsed / 3600000);
-        const minutes = Math.floor((elapsed % 3600000) / 60000);
-        const seconds = Math.floor((elapsed % 60000) / 1000);
-        
-        this.recordingTime.textContent = 
-            `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    }
-
-    updateRecordingStatus(status) {
-        this.recordingStatus.textContent = status.message;
-        this.recordingStatus.className = status.type;
-    }
 
     updateStats(data) {
         if (data.isFinal && data.text) {
@@ -385,17 +338,151 @@ class ControlPanel {
         }
     }
 
+    updateAudioLevel(level) {
+        // Update audio level bar (level is 0-1, convert to percentage)
+        const percentage = Math.min(level * 100, 100);
+        this.audioLevelBar.style.width = percentage + '%';
+    }
+
     startAudioLevelMonitoring() {
-        // Simulate audio level monitoring
+        // Reset audio level when not recording
         setInterval(() => {
-            if (this.isRecording) {
-                // Generate random audio level for demonstration
-                const level = Math.random() * 100;
-                this.audioLevelBar.style.width = level + '%';
-            } else {
+            if (!this.isRecording) {
                 this.audioLevelBar.style.width = '0%';
             }
         }, 100);
+    }
+
+    updateRecordingStatus(status) {
+        if (this.recordingStatus) {
+            this.recordingStatus.textContent = status.message;
+            this.recordingStatus.className = `recording-status ${status.type}`;
+        }
+        console.log('Recording status:', status);
+    }
+
+    // Theme management methods
+    async updateTheme(theme) {
+        try {
+            await window.electronAPI.setSetting('theme', theme);
+            this.applyTheme(theme);
+            
+            // Also update overlay window theme
+            if (window.electronAPI.setTheme) {
+                await window.electronAPI.setTheme(theme);
+            }
+        } catch (error) {
+            console.error('Error updating theme:', error);
+        }
+    }
+
+    applyTheme(theme) {
+        // Apply theme to control panel
+        if (theme === 'system') {
+            // Detect system theme
+            const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', systemTheme);
+        } else {
+            document.documentElement.setAttribute('data-theme', theme);
+        }
+        
+        // Listen for system theme changes when in system mode
+        if (theme === 'system') {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+                document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+            });
+        }
+    }
+
+    // Model management methods
+    async checkModelStatus(modelName) {
+        try {
+            if (window.electronAPI.getModelStatus) {
+                const status = await window.electronAPI.getModelStatus(modelName);
+                this.updateModelStatusUI(modelName, status);
+                this.modelStatus.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Error checking model status:', error);
+            this.modelStatus.style.display = 'none';
+        }
+    }
+
+    updateModelStatusUI(modelName, status) {
+        if (status.exists) {
+            this.modelStatusText.textContent = `✓ Downloaded (${status.size})`;
+            this.modelStatusText.style.color = 'var(--success)';
+            this.downloadModelBtn.style.display = 'none';
+        } else {
+            this.modelStatusText.textContent = 'Not Downloaded';
+            this.modelStatusText.style.color = 'var(--text-muted)';
+            this.downloadModelBtn.style.display = 'inline-block';
+            this.downloadModelBtn.textContent = 'Download';
+        }
+        
+        // Hide progress bar if not downloading
+        if (!status.downloading) {
+            this.downloadProgress.style.display = 'none';
+        }
+    }
+
+    async downloadModel() {
+        try {
+            const modelName = this.modelSelect.value;
+            console.log('Starting download for model:', modelName);
+            
+            // Check if already downloading
+            if (this.downloadModelBtn.disabled) {
+                console.log('Download already in progress, ignoring click');
+                return;
+            }
+            
+            this.downloadModelBtn.disabled = true;
+            this.downloadModelBtn.textContent = 'Starting...';
+            this.downloadProgress.style.display = 'block';
+            
+            if (window.electronAPI.downloadModel) {
+                console.log('Calling electronAPI.downloadModel...');
+                const result = await window.electronAPI.downloadModel(modelName);
+                console.log('Download result:', result);
+            } else {
+                console.error('electronAPI.downloadModel not available');
+            }
+        } catch (error) {
+            console.error('Error starting model download:', error);
+            this.downloadModelBtn.disabled = false;
+            this.downloadModelBtn.textContent = 'Download';
+            this.downloadProgress.style.display = 'none';
+            this.updateRecordingStatus({ message: `Error starting download: ${error.message}`, type: 'error' });
+        }
+    }
+
+    updateDownloadProgress(progress) {
+        console.log('Download progress update:', progress);
+        
+        // Update progress bar
+        this.downloadProgressBar.style.width = `${progress.percent}%`;
+        this.downloadPercent.textContent = `${Math.round(progress.percent)}%`;
+        
+        // Update download speed
+        if (progress.speed) {
+            const speedMB = (progress.speed / 1024 / 1024).toFixed(1);
+            this.downloadSpeed.textContent = `${speedMB} MB/s`;
+        }
+        
+        // Update ETA
+        if (progress.eta) {
+            const minutes = Math.floor(progress.eta / 60);
+            const seconds = Math.floor(progress.eta % 60);
+            this.downloadEta.textContent = `${minutes}:${seconds.toString().padStart(2, '0')} remaining`;
+        }
+        
+        // Update status text
+        if (progress.status) {
+            this.downloadStatus.textContent = progress.status;
+        }
+        
+        // Completion will be handled by the dedicated event handler
     }
 }
 

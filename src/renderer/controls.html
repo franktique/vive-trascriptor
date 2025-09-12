@@ -14,8 +14,17 @@
         </header>
 
         <div class="section">
-            <h3>Overlay Settings</h3>
+            <h3>Appearance</h3>
             
+            <div class="setting-group">
+                <label for="theme-select">Theme</label>
+                <select id="theme-select">
+                    <option value="light">Light Theme</option>
+                    <option value="dark">Dark Theme</option>
+                    <option value="system">Follow System</option>
+                </select>
+            </div>
+
             <div class="setting-group">
                 <label for="opacity-slider">Transparency</label>
                 <div class="slider-container">
@@ -33,31 +42,6 @@
             </div>
         </div>
 
-        <div class="section">
-            <h3>Recording Controls</h3>
-            
-            <div class="button-group">
-                <button id="start-recording" class="primary-button">
-                    <span class="icon">🎙️</span>
-                    Start Recording
-                </button>
-                
-                <button id="stop-recording" class="secondary-button" disabled>
-                    <span class="icon">⏹️</span>
-                    Stop Recording
-                </button>
-                
-                <button id="pause-recording" class="secondary-button" disabled>
-                    <span class="icon">⏸️</span>
-                    Pause
-                </button>
-            </div>
-
-            <div class="status-display">
-                <div id="recording-status">Ready</div>
-                <div id="recording-time">00:00:00</div>
-            </div>
-        </div>
 
         <div class="section">
             <h3>Audio Settings</h3>
@@ -91,11 +75,34 @@
             <div class="setting-group">
                 <label for="model-select">Model</label>
                 <select id="model-select">
-                    <option value="tiny">Tiny (fastest, less accurate)</option>
-                    <option value="base" selected>Base (balanced)</option>
-                    <option value="small">Small (slower, more accurate)</option>
-                    <option value="medium">Medium (slowest, most accurate)</option>
+                    <option value="tiny.en">Tiny EN (39 MB) - English only, fastest</option>
+                    <option value="base.en" selected>Base EN (74 MB) - English only, balanced</option>
+                    <option value="small.en">Small EN (244 MB) - English only, good accuracy</option>
+                    <option value="medium.en">Medium EN (769 MB) - English only, better accuracy</option>
+                    <option value="large">Large (1550 MB) - Multilingual, best accuracy</option>
                 </select>
+            </div>
+
+            <div id="model-status" class="setting-group" style="display: none;">
+                <label>Model Status</label>
+                <div id="model-info" class="status-display">
+                    <span id="model-status-text">Not Downloaded</span>
+                    <button id="download-model-btn" class="primary-button" style="font-size: 12px; padding: 6px 12px;">Download</button>
+                </div>
+                
+                <div id="download-progress" style="display: none; margin-top: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span id="download-status" style="font-size: 12px; color: var(--text-muted);">Downloading...</span>
+                        <span id="download-speed" style="font-size: 12px; color: var(--text-muted);"></span>
+                    </div>
+                    <div class="level-meter" style="height: 4px;">
+                        <div id="download-progress-bar" class="level-bar" style="background: var(--accent-primary); width: 0%;"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+                        <span id="download-percent" style="font-size: 11px; color: var(--text-muted);">0%</span>
+                        <span id="download-eta" style="font-size: 11px; color: var(--text-muted);"></span>
+                    </div>
+                </div>
             </div>
 
             <div class="setting-group">
