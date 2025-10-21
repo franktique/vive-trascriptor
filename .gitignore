@@ -84,4 +84,10 @@ Thumbs.db
 # Build outputs
 build/
 dist/
-out/models/
+out/
+
+# Models directory (Whisper model storage)
+models/
+
+# Binary model files
+*.bin
