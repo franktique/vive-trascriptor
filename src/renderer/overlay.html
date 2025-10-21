@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Whisper Transcriber Overlay</title>
+    <title>Whisper Transcriber</title>
     <link rel="stylesheet" href="overlay.css">
 </head>
 <body>
@@ -16,30 +16,193 @@
                 <button id="pause-recording-btn" class="recording-btn" title="Pause Recording" disabled>⏸️</button>
             </div>
             <div class="controls">
-                <button id="show-controls-btn" title="Show Controls">⚙️</button>
+                <button id="toggle-sidebar-btn" title="Settings">⚙️</button>
                 <button id="minimize-btn" title="Minimize">−</button>
                 <button id="close-btn" title="Close">×</button>
             </div>
         </div>
-        
-        <div class="transcript-container">
-            <div id="transcript-display">
-                <div class="status-indicator">
-                    <span id="status-text">Ready to transcribe</span>
-                    <div id="recording-indicator" class="hidden"></div>
+
+        <div class="main-content">
+            <div class="transcript-container">
+                <div id="transcript-display">
+                    <div class="status-indicator">
+                        <span id="status-text">Ready to transcribe</span>
+                        <div id="recording-indicator" class="hidden"></div>
+                    </div>
+                    <div id="transcript-text"></div>
+                    <div id="current-text" class="current-transcription"></div>
                 </div>
-                <div id="transcript-text"></div>
-                <div id="current-text" class="current-transcription"></div>
+            </div>
+
+            <div class="resize-handles">
+                <div class="resize-handle resize-right"></div>
+                <div class="resize-handle resize-bottom"></div>
+                <div class="resize-handle resize-bottom-right"></div>
             </div>
         </div>
-        
-        <div class="resize-handles">
-            <div class="resize-handle resize-right"></div>
-            <div class="resize-handle resize-bottom"></div>
-            <div class="resize-handle resize-bottom-right"></div>
+
+        <!-- Settings Sidebar -->
+        <div class="sidebar" id="settings-sidebar">
+            <div class="sidebar-header">
+                <h2>Settings</h2>
+                <button id="close-sidebar-btn" class="close-sidebar-btn" title="Close Settings">×</button>
+            </div>
+
+            <div class="sidebar-content">
+                <!-- Appearance Section -->
+                <div class="section">
+                    <h3>Appearance</h3>
+
+                    <div class="setting-group">
+                        <label for="theme-select">Theme</label>
+                        <select id="theme-select">
+                            <option value="light">Light Theme</option>
+                            <option value="dark">Dark Theme</option>
+                            <option value="system">Follow System</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="opacity-slider">Transparency</label>
+                        <div class="slider-container">
+                            <input type="range" id="opacity-slider" min="0.1" max="1" step="0.05" value="0.8">
+                            <span id="opacity-value">80%</span>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="font-size">Font Size</label>
+                        <div class="slider-container">
+                            <input type="range" id="font-size" min="12" max="24" step="1" value="16">
+                            <span id="font-size-value">16px</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Audio Settings Section -->
+                <div class="section">
+                    <h3>Audio Settings</h3>
+
+                    <div class="setting-group">
+                        <label for="microphone-select">Microphone</label>
+                        <select id="microphone-select">
+                            <option value="default">Default Microphone</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="sensitivity">Sensitivity</label>
+                        <div class="slider-container">
+                            <input type="range" id="sensitivity" min="0.1" max="1" step="0.1" value="0.5">
+                            <span id="sensitivity-value">50%</span>
+                        </div>
+                    </div>
+
+                    <div class="audio-level">
+                        <label>Audio Level</label>
+                        <div class="level-meter">
+                            <div class="level-bar" id="audio-level-bar"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Whisper Settings Section -->
+                <div class="section">
+                    <h3>Whisper Settings</h3>
+
+                    <div class="setting-group">
+                        <label for="model-select">Model</label>
+                        <select id="model-select">
+                            <option value="tiny.en">Tiny EN (39 MB) - English only, fastest</option>
+                            <option value="base.en" selected>Base EN (74 MB) - English only, balanced</option>
+                            <option value="small.en">Small EN (244 MB) - English only, good accuracy</option>
+                            <option value="medium.en">Medium EN (769 MB) - English only, better accuracy</option>
+                            <option value="large">Large (1550 MB) - Multilingual, best accuracy</option>
+                        </select>
+                    </div>
+
+                    <div id="model-status" class="setting-group" style="display: none;">
+                        <label>Model Status</label>
+                        <div id="model-info" class="status-display">
+                            <span id="model-status-text">Not Downloaded</span>
+                            <button id="download-model-btn" class="primary-button" style="font-size: 12px; padding: 6px 12px;">Download</button>
+                        </div>
+
+                        <div id="download-progress" style="display: none; margin-top: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <span id="download-status" style="font-size: 12px; color: var(--text-muted);">Downloading...</span>
+                                <span id="download-speed" style="font-size: 12px; color: var(--text-muted);"></span>
+                            </div>
+                            <div class="level-meter" style="height: 4px;">
+                                <div id="download-progress-bar" class="level-bar" style="background: var(--accent-primary); width: 0%;"></div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+                                <span id="download-percent" style="font-size: 11px; color: var(--text-muted);">0%</span>
+                                <span id="download-eta" style="font-size: 11px; color: var(--text-muted);"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="language-select">Language</label>
+                        <select id="language-select">
+                            <option value="en" selected>English</option>
+                            <option value="auto">Auto-detect</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Export Section -->
+                <div class="section">
+                    <h3>Export</h3>
+
+                    <div class="button-group">
+                        <button id="save-transcript" class="primary-button">
+                            <span class="icon">💾</span>
+                            Save Transcript
+                        </button>
+
+                        <button id="clear-transcript" class="warning-button">
+                            <span class="icon">🗑️</span>
+                            Clear Transcript
+                        </button>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="export-format">Export Format</label>
+                        <select id="export-format">
+                            <option value="srt" selected>SRT (SubRip)</option>
+                            <option value="txt">Plain Text</option>
+                            <option value="json">JSON</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Statistics Section -->
+                <div class="section">
+                    <h3>Statistics</h3>
+
+                    <div class="stats-grid">
+                        <div class="stat">
+                            <div class="stat-value" id="total-words">0</div>
+                            <div class="stat-label">Words</div>
+                        </div>
+
+                        <div class="stat">
+                            <div class="stat-value" id="total-time">00:00</div>
+                            <div class="stat-label">Duration</div>
+                        </div>
+
+                        <div class="stat">
+                            <div class="stat-value" id="avg-confidence">0%</div>
+                            <div class="stat-label">Avg Confidence</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-    
+
     <script src="overlay.js"></script>
 </body>
 </html>

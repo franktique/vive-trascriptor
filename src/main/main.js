@@ -16,7 +16,6 @@ async function initStore() {
 }
 
 let overlayWindow = null;
-let controlWindow = null;
 
 // Audio processing components
 let audioManager = null;
@@ -27,14 +26,16 @@ let isTranscribing = false;
 
 function createOverlayWindow() {
   overlayWindow = new BrowserWindow({
-    width: 800,
-    height: 200,
+    width: 1000,
+    height: 600,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: true,
     movable: true,
+    minWidth: 600,
+    minHeight: 300,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -67,33 +68,6 @@ function createOverlayWindow() {
   });
 }
 
-function createControlWindow() {
-  controlWindow = new BrowserWindow({
-    width: 400,
-    height: 300,
-    transparent: false,
-    frame: true,
-    alwaysOnTop: false,
-    resizable: false,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      enableRemoteModule: false,
-      preload: path.join(__dirname, '../preload/preload.js')
-    }
-  });
-
-  controlWindow.loadFile(path.join(__dirname, '../renderer/controls.html'));
-
-  if (process.argv.includes('--dev')) {
-    controlWindow.webContents.openDevTools({ mode: 'detach' });
-  }
-
-  controlWindow.on('closed', () => {
-    controlWindow = null;
-  });
-}
-
 async function checkMicrophonePermission() {
   if (process.platform === 'darwin') {
     const status = systemPreferences.getMediaAccessStatus('microphone');
@@ -122,6 +96,21 @@ ipcMain.handle('get-overlay-opacity', () => {
   return store.get('overlayOpacity', 0.8);
 });
 
+ipcMain.handle('set-opacity', (event, opacity) => {
+  if (overlayWindow) {
+    overlayWindow.setOpacity(opacity);
+    store.set('overlayOpacity', opacity);
+  }
+});
+
+ipcMain.handle('set-font-size', (event, fontSize) => {
+  store.set('fontSize', fontSize);
+});
+
+ipcMain.handle('get-font-size', () => {
+  return store.get('fontSize', 16);
+});
+
 ipcMain.handle('check-microphone-permission', async () => {
   return await checkMicrophonePermission();
 });
@@ -142,16 +131,8 @@ ipcMain.handle('close-overlay', () => {
   }
 });
 
-ipcMain.handle('show-controls', () => {
-  if (controlWindow) {
-    controlWindow.focus();
-  } else {
-    createControlWindow();
-  }
-});
-
 ipcMain.handle('save-transcript', async (event, content) => {
-  const result = await dialog.showSaveDialog(controlWindow || overlayWindow, {
+  const result = await dialog.showSaveDialog(overlayWindow, {
     defaultPath: 'transcript.srt',
     filters: [
       { name: 'SubRip Files', extensions: ['srt'] },
@@ -274,23 +255,23 @@ function setupAudioEventHandlers() {
 
   // Model Manager events
   modelManager.on('download-progress', (progress) => {
-    // Send progress to control window
-    if (controlWindow && !controlWindow.isDestroyed()) {
-      controlWindow.webContents.send('model-download-progress', progress);
+    // Send progress to overlay window
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send('model-download-progress', progress);
     }
   });
 
   modelManager.on('download-complete', (result) => {
     console.log('Model download completed:', result.modelName);
-    if (controlWindow && !controlWindow.isDestroyed()) {
-      controlWindow.webContents.send('model-download-complete', result);
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send('model-download-complete', result);
     }
   });
 
   modelManager.on('download-error', (error) => {
     console.error('Model download error:', error);
-    if (controlWindow && !controlWindow.isDestroyed()) {
-      controlWindow.webContents.send('model-download-error', error);
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send('model-download-error', error);
     }
   });
 
@@ -302,9 +283,9 @@ function setupAudioEventHandlers() {
   });
 
   audioManager.on('audio-level', (level) => {
-    // Send audio level to renderer processes
-    if (controlWindow && !controlWindow.isDestroyed()) {
-      controlWindow.webContents.send('audio-level', level);
+    // Send audio level to overlay renderer process
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send('audio-level', level);
     }
   });
 
@@ -332,13 +313,10 @@ function setupAudioEventHandlers() {
   });
 }
 
-// Helper function to send data to all renderer processes
+// Helper function to send data to overlay renderer process
 function sendToRenderers(channel, data) {
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     overlayWindow.webContents.send(channel, data);
-  }
-  if (controlWindow && !controlWindow.isDestroyed()) {
-    controlWindow.webContents.send(channel, data);
   }
 }
 
@@ -452,18 +430,6 @@ function createMenu() {
         },
         { type: 'separator' },
         {
-          label: 'Show Controls',
-          accelerator: 'Command+,',
-          click: () => {
-            if (controlWindow) {
-              controlWindow.focus();
-            } else {
-              createControlWindow();
-            }
-          }
-        },
-        { type: 'separator' },
-        {
           label: 'Hide Whisper Transcriber',
           accelerator: 'Command+H',
           role: 'hide'
@@ -544,8 +510,7 @@ app.whenReady().then(async () => {
   }
 
   createOverlayWindow();
-  createControlWindow();
-  
+
   if (process.platform === 'darwin') {
     createMenu();
   }
@@ -560,7 +525,6 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createOverlayWindow();
-    createControlWindow();
   }
 });
 

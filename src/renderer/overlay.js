@@ -16,17 +16,40 @@ class WhisperOverlay {
         this.recordingIndicator = document.getElementById('recording-indicator');
         this.transcriptDisplay = document.getElementById('transcript-text');
         this.currentText = document.getElementById('current-text');
-        
+
         // Recording controls
         this.startRecordingBtn = document.getElementById('start-recording-btn');
         this.stopRecordingBtn = document.getElementById('stop-recording-btn');
         this.pauseRecordingBtn = document.getElementById('pause-recording-btn');
-        
+
         // Window controls
-        this.showControlsBtn = document.getElementById('show-controls-btn');
+        this.toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
+        this.closeSidebarBtn = document.getElementById('close-sidebar-btn');
         this.minimizeBtn = document.getElementById('minimize-btn');
         this.closeBtn = document.getElementById('close-btn');
-        
+
+        // Sidebar
+        this.sidebar = document.getElementById('settings-sidebar');
+
+        // Settings controls
+        this.themeSelect = document.getElementById('theme-select');
+        this.opacitySlider = document.getElementById('opacity-slider');
+        this.opacityValue = document.getElementById('opacity-value');
+        this.fontSizeSlider = document.getElementById('font-size');
+        this.fontSizeValue = document.getElementById('font-size-value');
+        this.microphoneSelect = document.getElementById('microphone-select');
+        this.sensitivitySlider = document.getElementById('sensitivity');
+        this.sensitivityValue = document.getElementById('sensitivity-value');
+        this.audioLevelBar = document.getElementById('audio-level-bar');
+        this.modelSelect = document.getElementById('model-select');
+        this.languageSelect = document.getElementById('language-select');
+        this.exportFormat = document.getElementById('export-format');
+        this.saveTranscriptBtn = document.getElementById('save-transcript');
+        this.clearTranscriptBtn = document.getElementById('clear-transcript');
+        this.totalWordsDisplay = document.getElementById('total-words');
+        this.totalTimeDisplay = document.getElementById('total-time');
+        this.avgConfidenceDisplay = document.getElementById('avg-confidence');
+
         // Initialize recording state
         this.recordingStartTime = null;
         this.recordingTimer = null;
@@ -47,9 +70,13 @@ class WhisperOverlay {
             this.pauseRecording();
         });
 
-        // Window controls
-        this.showControlsBtn.addEventListener('click', () => {
-            window.electronAPI.showControls();
+        // Sidebar controls
+        this.toggleSidebarBtn.addEventListener('click', () => {
+            this.toggleSidebar();
+        });
+
+        this.closeSidebarBtn.addEventListener('click', () => {
+            this.closeSidebar();
         });
 
         this.minimizeBtn.addEventListener('click', () => {
@@ -58,6 +85,31 @@ class WhisperOverlay {
 
         this.closeBtn.addEventListener('click', () => {
             window.electronAPI.closeOverlay();
+        });
+
+        // Settings controls
+        this.themeSelect.addEventListener('change', (e) => {
+            this.setTheme(e.target.value);
+        });
+
+        this.opacitySlider.addEventListener('input', (e) => {
+            const opacity = parseFloat(e.target.value);
+            this.opacityValue.textContent = Math.round(opacity * 100) + '%';
+            window.electronAPI.setOpacity(opacity);
+        });
+
+        this.fontSizeSlider.addEventListener('input', (e) => {
+            const fontSize = parseInt(e.target.value);
+            this.fontSizeValue.textContent = fontSize + 'px';
+            this.setFontSize(fontSize);
+        });
+
+        this.saveTranscriptBtn.addEventListener('click', () => {
+            this.saveTranscript();
+        });
+
+        this.clearTranscriptBtn.addEventListener('click', () => {
+            this.clearTranscript();
         });
 
         // Keyboard shortcuts
@@ -351,15 +403,42 @@ class WhisperOverlay {
         this.updateStatus('Transcript cleared', 'info');
     }
 
-    // Theme management
+    // ===== SIDEBAR MANAGEMENT =====
+    toggleSidebar() {
+        if (this.sidebar.classList.contains('open')) {
+            this.closeSidebar();
+        } else {
+            this.openSidebar();
+        }
+    }
+
+    openSidebar() {
+        this.sidebar.classList.add('open');
+        this.toggleSidebarBtn.classList.add('active');
+    }
+
+    closeSidebar() {
+        this.sidebar.classList.remove('open');
+        this.toggleSidebarBtn.classList.remove('active');
+    }
+
+    // ===== THEME MANAGEMENT =====
     async loadTheme() {
         try {
             if (window.electronAPI.getTheme) {
                 const theme = await window.electronAPI.getTheme();
                 this.applyTheme(theme);
+                this.themeSelect.value = theme;
             }
         } catch (error) {
             console.error('Error loading theme:', error);
+        }
+    }
+
+    setTheme(theme) {
+        this.applyTheme(theme);
+        if (window.electronAPI.setTheme) {
+            window.electronAPI.setTheme(theme);
         }
     }
 
@@ -369,6 +448,15 @@ class WhisperOverlay {
             document.documentElement.setAttribute('data-theme', systemTheme);
         } else {
             document.documentElement.setAttribute('data-theme', theme);
+        }
+    }
+
+    // ===== FONT SIZE MANAGEMENT =====
+    setFontSize(fontSize) {
+        document.documentElement.style.setProperty('--transcript-font-size', fontSize + 'px');
+        this.transcriptDisplay.style.fontSize = fontSize + 'px';
+        if (window.electronAPI.setFontSize) {
+            window.electronAPI.setFontSize(fontSize);
         }
     }
 
