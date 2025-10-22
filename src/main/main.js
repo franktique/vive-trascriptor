@@ -119,6 +119,18 @@ ipcMain.handle('request-microphone-permission', async () => {
   return await checkMicrophonePermission();
 });
 
+// External link handler
+const { shell } = require('electron');
+ipcMain.handle('open-external', async (event, url) => {
+  try {
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (error) {
+    console.error('Error opening external URL:', error);
+    throw error;
+  }
+});
+
 ipcMain.handle('minimize-overlay', () => {
   if (overlayWindow) {
     overlayWindow.minimize();
@@ -168,6 +180,143 @@ ipcMain.handle('set-theme', (event, theme) => {
 
 ipcMain.handle('get-theme', () => {
   return store.get('theme', 'light');
+});
+
+// Audio Parameter IPC handlers
+ipcMain.handle('set-audio-parameter', async (event, paramId, value) => {
+  try {
+    // Validate parameter ranges
+    const paramLimits = {
+      silenceThreshold: { min: -60, max: -10 },
+      normalizationTarget: { min: -30, max: -10 },
+      confidenceThreshold: { min: 0.3, max: 0.9 },
+      highPassCutoff: { min: 100, max: 800 },
+      agcTargetLevel: { min: -30, max: -10 },
+      maxParallelChunks: { min: 1, max: 4 },
+      vadEnergyThreshold: { min: -40, max: -20 }
+    };
+
+    const limits = paramLimits[paramId];
+    if (!limits) {
+      throw new Error(`Unknown audio parameter: ${paramId}`);
+    }
+
+    // Validate value is within limits
+    if (value < limits.min || value > limits.max) {
+      throw new Error(`Parameter ${paramId} value ${value} out of range [${limits.min}, ${limits.max}]`);
+    }
+
+    // Save to store
+    store.set(`audioParam_${paramId}`, value);
+
+    // Update relevant processor if running
+    let bufferResult = null;
+    let whisperResult = null;
+
+    if (bufferManager) {
+      bufferResult = bufferManager.updateParameter(paramId, value);
+      console.log(`BufferManager parameter update result:`, bufferResult);
+    }
+
+    if (whisperProcessor) {
+      whisperResult = whisperProcessor.updateParameter(paramId, value);
+      console.log(`WhisperProcessor parameter update result:`, whisperResult);
+    }
+
+    // Determine overall success
+    const success = (bufferResult?.success !== false) && (whisperResult?.success !== false);
+
+    console.log(`Audio parameter updated: ${paramId} = ${value} (success: ${success})`);
+    return {
+      success: true,
+      paramId,
+      value,
+      bufferManager: bufferResult,
+      whisperProcessor: whisperResult
+    };
+  } catch (error) {
+    console.error(`Error setting audio parameter ${paramId}:`, error);
+    throw error;
+  }
+});
+
+ipcMain.handle('get-audio-parameter', async (event, paramId) => {
+  try {
+    const defaults = {
+      silenceThreshold: -40,
+      normalizationTarget: -20,
+      confidenceThreshold: 0.6,
+      highPassCutoff: 300,
+      agcTargetLevel: -20,
+      maxParallelChunks: 2,
+      vadEnergyThreshold: -35
+    };
+
+    const value = store.get(`audioParam_${paramId}`);
+    return value !== undefined ? value : defaults[paramId];
+  } catch (error) {
+    console.error(`Error getting audio parameter ${paramId}:`, error);
+    throw error;
+  }
+});
+
+ipcMain.handle('get-all-audio-parameters', async (event) => {
+  try {
+    const defaults = {
+      silenceThreshold: -40,
+      normalizationTarget: -20,
+      confidenceThreshold: 0.6,
+      highPassCutoff: 300,
+      agcTargetLevel: -20,
+      maxParallelChunks: 2,
+      vadEnergyThreshold: -35
+    };
+
+    const params = {};
+    Object.keys(defaults).forEach(paramId => {
+      params[paramId] = store.get(`audioParam_${paramId}`, defaults[paramId]);
+    });
+
+    return params;
+  } catch (error) {
+    console.error('Error getting all audio parameters:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('reset-audio-parameter', async (event, paramId) => {
+  try {
+    const defaults = {
+      silenceThreshold: -40,
+      normalizationTarget: -20,
+      confidenceThreshold: 0.6,
+      highPassCutoff: 300,
+      agcTargetLevel: -20,
+      maxParallelChunks: 2,
+      vadEnergyThreshold: -35
+    };
+
+    const defaultValue = defaults[paramId];
+    if (defaultValue === undefined) {
+      throw new Error(`Unknown audio parameter: ${paramId}`);
+    }
+
+    store.set(`audioParam_${paramId}`, defaultValue);
+
+    // Update relevant processor if running
+    if (bufferManager) {
+      bufferManager.updateParameter(paramId, defaultValue);
+    }
+    if (whisperProcessor) {
+      whisperProcessor.updateParameter(paramId, defaultValue);
+    }
+
+    console.log(`Audio parameter reset: ${paramId} = ${defaultValue}`);
+    return { success: true, value: defaultValue };
+  } catch (error) {
+    console.error(`Error resetting audio parameter ${paramId}:`, error);
+    throw error;
+  }
 });
 
 // Model management IPC handlers
@@ -297,7 +446,31 @@ function setupAudioEventHandlers() {
   // Buffer Manager events
   bufferManager.on('chunk-ready', async (chunk) => {
     if (whisperProcessor && isTranscribing) {
+      // Send audio statistics to overlay for real-time metering
+      if (chunk.audioStats) {
+        const audioStats = {
+          peakDb: chunk.audioStats.peakDb,
+          rmsDb: chunk.audioStats.rmsDb,
+          dynamicRange: chunk.audioStats.dynamicRange,
+          timestamp: Date.now()
+        };
+        if (overlayWindow && !overlayWindow.isDestroyed()) {
+          overlayWindow.webContents.send('audio-stats', audioStats);
+        }
+      }
+
       await whisperProcessor.processChunk(chunk);
+    }
+  });
+
+  bufferManager.on('chunk-skipped', (data) => {
+    // Send info about skipped chunks (silence detection)
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send('chunk-skipped', {
+        reason: data.reason,
+        chunkId: data.chunkId,
+        silenceInfo: data.silenceInfo
+      });
     }
   });
 

@@ -16,6 +16,7 @@
                 <button id="pause-recording-btn" class="recording-btn" title="Pause Recording" disabled>⏸️</button>
             </div>
             <div class="controls">
+                <button id="advanced-audio-btn" title="Advanced Audio Settings">🎚️</button>
                 <button id="toggle-sidebar-btn" title="Settings">⚙️</button>
                 <button id="minimize-btn" title="Minimize">−</button>
                 <button id="close-btn" title="Close">×</button>
@@ -198,6 +199,165 @@
                             <div class="stat-label">Avg Confidence</div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Advanced Audio Settings Sidebar -->
+    <div class="sidebar" id="advanced-audio-sidebar">
+        <div class="sidebar-header">
+            <h2>Advanced Audio</h2>
+            <button id="close-advanced-audio-btn" class="close-sidebar-btn" title="Close Advanced Audio">×</button>
+        </div>
+
+        <div class="sidebar-content">
+            <div id="audio-parameters-container">
+                    <!-- 1. Silence Threshold (Critical Impact) -->
+                    <div class="audio-parameter-group critical-impact">
+                        <div class="parameter-header">
+                            <div class="parameter-title">
+                                <label>Silence Threshold</label>
+                                <span class="impact-badge">⚠️ Critical</span>
+                            </div>
+                            <button type="button" class="reset-btn" data-param="silenceThreshold" title="Reset to default (-40 dB)">↻ Reset</button>
+                        </div>
+                        <p class="parameter-description">Skip audio chunks below this volume level</p>
+                        <div class="slider-container">
+                            <span class="slider-min">-60 dB</span>
+                            <input type="range" id="silence-threshold-slider" class="audio-slider" min="-60" max="-10" step="2" value="-40" data-param="silenceThreshold" data-unit="dB">
+                            <span class="slider-max">-10 dB</span>
+                        </div>
+                        <div class="slider-value-display">
+                            <span id="silence-threshold-value">-40 dB</span>
+                        </div>
+                    </div>
+
+                    <!-- 2. Normalization Target (Critical Impact) -->
+                    <div class="audio-parameter-group critical-impact">
+                        <div class="parameter-header">
+                            <div class="parameter-title">
+                                <label>Normalization Target</label>
+                                <span class="impact-badge">⚠️ Critical</span>
+                            </div>
+                            <button type="button" class="reset-btn" data-param="normalizationTarget" title="Reset to default (-20 dB)">↻ Reset</button>
+                        </div>
+                        <p class="parameter-description">Target audio level for normalization</p>
+                        <div class="slider-container">
+                            <span class="slider-min">-30 dB</span>
+                            <input type="range" id="normalization-target-slider" class="audio-slider" min="-30" max="-10" step="1" value="-20" data-param="normalizationTarget" data-unit="dB">
+                            <span class="slider-max">-10 dB</span>
+                        </div>
+                        <div class="slider-value-display">
+                            <span id="normalization-target-value">-20 dB</span>
+                        </div>
+                    </div>
+
+                    <!-- 3. Confidence Threshold (Critical Impact) -->
+                    <div class="audio-parameter-group critical-impact">
+                        <div class="parameter-header">
+                            <div class="parameter-title">
+                                <label>Confidence Threshold</label>
+                                <span class="impact-badge">⚠️ Critical</span>
+                            </div>
+                            <button type="button" class="reset-btn" data-param="confidenceThreshold" title="Reset to default (0.6)">↻ Reset</button>
+                        </div>
+                        <p class="parameter-description">Minimum confidence to display transcription results</p>
+                        <div class="slider-container">
+                            <span class="slider-min">0.3</span>
+                            <input type="range" id="confidence-threshold-slider" class="audio-slider" min="0.3" max="0.9" step="0.05" value="0.6" data-param="confidenceThreshold" data-unit="">
+                            <span class="slider-max">0.9</span>
+                        </div>
+                        <div class="slider-value-display">
+                            <span id="confidence-threshold-value">60%</span>
+                        </div>
+                    </div>
+
+                    <!-- 4. High-Pass Filter Cutoff (Medium Impact) -->
+                    <div class="audio-parameter-group medium-impact">
+                        <div class="parameter-header">
+                            <div class="parameter-title">
+                                <label>High-Pass Filter Cutoff</label>
+                                <span class="impact-badge">🟡 Medium</span>
+                            </div>
+                            <button type="button" class="reset-btn" data-param="highPassCutoff" title="Reset to default (300 Hz)">↻ Reset</button>
+                        </div>
+                        <p class="parameter-description">Remove frequencies below this Hz (noise filtering)</p>
+                        <div class="slider-container">
+                            <span class="slider-min">100 Hz</span>
+                            <input type="range" id="high-pass-cutoff-slider" class="audio-slider" min="100" max="800" step="50" value="300" data-param="highPassCutoff" data-unit="Hz">
+                            <span class="slider-max">800 Hz</span>
+                        </div>
+                        <div class="slider-value-display">
+                            <span id="high-pass-cutoff-value">300 Hz</span>
+                        </div>
+                    </div>
+
+                    <!-- 5. AGC Target Level (Medium Impact) -->
+                    <div class="audio-parameter-group medium-impact">
+                        <div class="parameter-header">
+                            <div class="parameter-title">
+                                <label>AGC Target Level</label>
+                                <span class="impact-badge">🟡 Medium</span>
+                            </div>
+                            <button type="button" class="reset-btn" data-param="agcTargetLevel" title="Reset to default (-20 dB)">↻ Reset</button>
+                        </div>
+                        <p class="parameter-description">Target level for automatic gain control</p>
+                        <div class="slider-container">
+                            <span class="slider-min">-30 dB</span>
+                            <input type="range" id="agc-target-level-slider" class="audio-slider" min="-30" max="-10" step="1" value="-20" data-param="agcTargetLevel" data-unit="dB">
+                            <span class="slider-max">-10 dB</span>
+                        </div>
+                        <div class="slider-value-display">
+                            <span id="agc-target-level-value">-20 dB</span>
+                        </div>
+                    </div>
+
+                    <!-- 6. Max Parallel Chunks (Medium Impact) -->
+                    <div class="audio-parameter-group medium-impact">
+                        <div class="parameter-header">
+                            <div class="parameter-title">
+                                <label>Max Parallel Chunks</label>
+                                <span class="impact-badge">🟡 Medium</span>
+                            </div>
+                            <button type="button" class="reset-btn" data-param="maxParallelChunks" title="Reset to default (2)">↻ Reset</button>
+                        </div>
+                        <p class="parameter-description">Number of audio chunks to process simultaneously</p>
+                        <div class="slider-container">
+                            <span class="slider-min">1</span>
+                            <input type="range" id="max-parallel-chunks-slider" class="audio-slider" min="1" max="4" step="1" value="2" data-param="maxParallelChunks" data-unit="">
+                            <span class="slider-max">4</span>
+                        </div>
+                        <div class="slider-value-display">
+                            <span id="max-parallel-chunks-value">2</span>
+                        </div>
+                    </div>
+
+                    <!-- 7. VAD Energy Threshold (Low-Medium Impact) -->
+                    <div class="audio-parameter-group low-impact">
+                        <div class="parameter-header">
+                            <div class="parameter-title">
+                                <label>VAD Energy Threshold</label>
+                                <span class="impact-badge">🟡 Low-Med</span>
+                            </div>
+                            <button type="button" class="reset-btn" data-param="vadEnergyThreshold" title="Reset to default (-35 dB)">↻ Reset</button>
+                        </div>
+                        <p class="parameter-description">Minimum energy level for voice activity detection</p>
+                        <div class="slider-container">
+                            <span class="slider-min">-40 dB</span>
+                            <input type="range" id="vad-energy-threshold-slider" class="audio-slider" min="-40" max="-20" step="1" value="-35" data-param="vadEnergyThreshold" data-unit="dB">
+                            <span class="slider-max">-20 dB</span>
+                        </div>
+                        <div class="slider-value-display">
+                            <span id="vad-energy-threshold-value">-35 dB</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+                <!-- Control Buttons -->
+                <div class="button-group" style="margin-top: 16px;">
+                    <button type="button" id="advanced-reset-all-btn" class="primary-button">↻ Reset All to Defaults</button>
                 </div>
             </div>
         </div>
