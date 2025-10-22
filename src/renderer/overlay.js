@@ -50,6 +50,68 @@ class WhisperOverlay {
         this.totalTimeDisplay = document.getElementById('total-time');
         this.avgConfidenceDisplay = document.getElementById('avg-confidence');
 
+        // Advanced Audio Sidebar controls
+        this.advancedAudioBtn = document.getElementById('advanced-audio-btn');
+        this.advancedAudioSidebar = document.getElementById('advanced-audio-sidebar');
+        this.closeAdvancedAudioBtn = document.getElementById('close-advanced-audio-btn');
+        this.advancedResetAllBtn = document.getElementById('advanced-reset-all-btn');
+
+        // Audio parameter sliders
+        this.audioSliders = {
+            silenceThreshold: {
+                slider: document.getElementById('silence-threshold-slider'),
+                display: document.getElementById('silence-threshold-value'),
+                resetBtn: document.querySelector('[data-param="silenceThreshold"]'),
+                default: -40,
+                unit: 'dB'
+            },
+            normalizationTarget: {
+                slider: document.getElementById('normalization-target-slider'),
+                display: document.getElementById('normalization-target-value'),
+                resetBtn: document.querySelector('[data-param="normalizationTarget"]'),
+                default: -20,
+                unit: 'dB'
+            },
+            confidenceThreshold: {
+                slider: document.getElementById('confidence-threshold-slider'),
+                display: document.getElementById('confidence-threshold-value'),
+                resetBtn: document.querySelector('[data-param="confidenceThreshold"]'),
+                default: 0.6,
+                unit: ''
+            },
+            highPassCutoff: {
+                slider: document.getElementById('high-pass-cutoff-slider'),
+                display: document.getElementById('high-pass-cutoff-value'),
+                resetBtn: document.querySelector('[data-param="highPassCutoff"]'),
+                default: 300,
+                unit: 'Hz'
+            },
+            agcTargetLevel: {
+                slider: document.getElementById('agc-target-level-slider'),
+                display: document.getElementById('agc-target-level-value'),
+                resetBtn: document.querySelector('[data-param="agcTargetLevel"]'),
+                default: -20,
+                unit: 'dB'
+            },
+            maxParallelChunks: {
+                slider: document.getElementById('max-parallel-chunks-slider'),
+                display: document.getElementById('max-parallel-chunks-value'),
+                resetBtn: document.querySelector('[data-param="maxParallelChunks"]'),
+                default: 2,
+                unit: ''
+            },
+            vadEnergyThreshold: {
+                slider: document.getElementById('vad-energy-threshold-slider'),
+                display: document.getElementById('vad-energy-threshold-value'),
+                resetBtn: document.querySelector('[data-param="vadEnergyThreshold"]'),
+                default: -35,
+                unit: 'dB'
+            }
+        };
+
+        // Debouncing timer for audio parameters
+        this.audioParamDebounceTimer = null;
+
         // Initialize recording state
         this.recordingStartTime = null;
         this.recordingTimer = null;
@@ -112,10 +174,47 @@ class WhisperOverlay {
             this.clearTranscript();
         });
 
+        // Advanced Audio Sidebar controls
+        this.advancedAudioBtn.addEventListener('click', () => {
+            this.toggleAdvancedAudioSidebar();
+        });
+
+        this.closeAdvancedAudioBtn.addEventListener('click', () => {
+            this.closeAdvancedAudioSidebar();
+        });
+
+        // Audio parameter sliders
+        Object.keys(this.audioSliders).forEach(paramId => {
+            const config = this.audioSliders[paramId];
+
+            // Slider change event with debouncing
+            config.slider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                this.updateAudioParameterDisplay(paramId, value);
+                this.debouncedSaveAudioParameter(paramId, value);
+            });
+
+            // Reset button
+            config.resetBtn.addEventListener('click', () => {
+                this.resetAudioParameter(paramId);
+            });
+        });
+
+        // Reset all button
+        this.advancedResetAllBtn.addEventListener('click', () => {
+            this.resetAllAudioParameters();
+        });
+
         // Keyboard shortcuts
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
-                this.toggleRecording();
+                if (this.advancedAudioSidebar.classList.contains('open')) {
+                    this.closeAdvancedAudioSidebar();
+                } else if (this.sidebar.classList.contains('open')) {
+                    this.closeSidebar();
+                } else {
+                    this.toggleRecording();
+                }
             } else if (event.key === 'Enter' && event.metaKey) {
                 this.saveTranscript();
             }
@@ -132,6 +231,15 @@ class WhisperOverlay {
 
         window.electronAPI.onTranscriptionStatus((event, status) => {
             this.handleTranscriptionStatus(status);
+        });
+
+        // Audio statistics listeners
+        window.electronAPI.onAudioStats((event, stats) => {
+            this.updateAudioMeter(stats);
+        });
+
+        window.electronAPI.onChunkSkipped((event, data) => {
+            this.handleChunkSkipped(data);
         });
 
         // Theme management
@@ -293,11 +401,24 @@ class WhisperOverlay {
     }
 
     handleTranscriptionData(data) {
-        const { text, startTime, endTime, confidence } = data;
-        
+        const { text, startTime, endTime, confidence, chunkId, speaker, speakerConfidence, emotion, emotionConfidence } = data;
+
         if (data.isFinal) {
-            // Add to permanent transcript
-            this.addTranscriptLine(text, startTime, endTime, confidence);
+            // Filter out very low confidence results (below 0.6)
+            if (confidence < 0.6) {
+                console.warn(`Filtering low confidence result (${confidence.toFixed(2)}): "${text}"`);
+                this.updateStatus(`Low confidence result filtered (${confidence.toFixed(2)})`, 'info');
+                this.currentText.textContent = '';
+                return;
+            }
+
+            // Add to permanent transcript with Phase 4 metadata
+            this.addTranscriptLine(text, startTime, endTime, confidence, {
+                speaker: speaker,
+                speakerConfidence: speakerConfidence,
+                emotion: emotion,
+                emotionConfidence: emotionConfidence
+            });
             this.currentText.textContent = '';
         } else {
             // Show as current/partial transcription
@@ -314,7 +435,7 @@ class WhisperOverlay {
         this.updateStatus(status.message, status.type);
     }
 
-    addTranscriptLine(text, startTime, endTime, confidence) {
+    addTranscriptLine(text, startTime, endTime, confidence, metadata = {}) {
         if (!text.trim()) return;
 
         const transcriptEntry = {
@@ -323,18 +444,85 @@ class WhisperOverlay {
             startTime,
             endTime,
             confidence,
+            // Phase 4 metadata
+            speaker: metadata.speaker || null,
+            speakerConfidence: metadata.speakerConfidence || null,
+            emotion: metadata.emotion || null,
+            emotionConfidence: metadata.emotionConfidence || null,
             timestamp: new Date()
         };
 
         this.transcriptData.push(transcriptEntry);
 
-        // Add to display
+        // Add to display with confidence-based styling
         const line = document.createElement('div');
-        line.className = `transcript-line ${confidence < 0.7 ? 'low-confidence' : ''}`;
-        line.textContent = text;
-        
+        let confidenceClass = 'confidence-high';
+
+        if (confidence < 0.6) {
+            confidenceClass = 'confidence-very-low';
+        } else if (confidence < 0.7) {
+            confidenceClass = 'confidence-low';
+        } else if (confidence < 0.85) {
+            confidenceClass = 'confidence-medium';
+        }
+
+        line.className = `transcript-line ${confidenceClass}`;
+
+        // Add confidence indicator as a data attribute for CSS
+        line.setAttribute('data-confidence', confidence.toFixed(2));
+
+        // Add emotion indicator if available
+        if (metadata.emotion) {
+            line.setAttribute('data-emotion', metadata.emotion);
+        }
+
+        // Build display text with speaker label and timestamp
+        let displayText = '';
+
+        // Format timestamp as MM:SS
+        const totalSeconds = Math.floor(startTime / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        const timestamp = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+        // Build speaker label
+        let speakerLabel = '';
+        if (metadata.speaker) {
+            speakerLabel = ` ${metadata.speaker}`;
+        }
+
+        // Build emotion label
+        let emotionLabel = '';
+        if (metadata.emotion) {
+            emotionLabel = ` [${metadata.emotion.toUpperCase()}]`;
+        }
+
+        // Format as: [MM:SS] Speaker X [EMOTION]: text
+        displayText = `[${timestamp}]${speakerLabel}${emotionLabel}: ${text}`;
+        line.textContent = displayText;
+
+        // Build detailed tooltip with all metadata
+        let tooltipText = `Confidence: ${(confidence * 100).toFixed(1)}%`;
+        if (metadata.speaker && metadata.speakerConfidence) {
+            tooltipText += ` | ${metadata.speaker}: ${(metadata.speakerConfidence * 100).toFixed(0)}%`;
+        }
+        if (metadata.emotion && metadata.emotionConfidence) {
+            tooltipText += ` | ${metadata.emotion}: ${(metadata.emotionConfidence * 100).toFixed(0)}%`;
+        }
+
+        line.title = tooltipText;
+
         this.transcriptDisplay.appendChild(line);
         this.transcriptDisplay.scrollTop = this.transcriptDisplay.scrollHeight;
+
+        // Log with Phase 4 metadata
+        if (confidence >= 0.85) {
+            const metadata_str = metadata.speaker ? ` | ${metadata.speaker}` : '';
+            console.log(`✓ High confidence (${confidence.toFixed(2)})${metadata_str}: ${text}`);
+        } else if (confidence >= 0.7) {
+            const metadata_str = metadata.speaker ? ` | ${metadata.speaker}` : '';
+            console.log(`~ Medium confidence (${confidence.toFixed(2)})${metadata_str}: ${text}`);
+        }
     }
 
     updateStatus(message, type) {
@@ -348,8 +536,21 @@ class WhisperOverlay {
         return this.transcriptData.map(entry => {
             const startTime = this.formatSRTTime(entry.startTime);
             const endTime = this.formatSRTTime(entry.endTime);
-            
-            return `${entry.id}\n${startTime} --> ${endTime}\n${entry.text}\n`;
+
+            // Build subtitle text with speaker and emotion labels
+            let subtitleText = entry.text;
+
+            // Add speaker label if available
+            if (entry.speaker) {
+                subtitleText = `${entry.speaker}: ${subtitleText}`;
+            }
+
+            // Add emotion label if available
+            if (entry.emotion) {
+                subtitleText += ` [${entry.emotion.toUpperCase()}]`;
+            }
+
+            return `${entry.id}\n${startTime} --> ${endTime}\n${subtitleText}\n`;
         }).join('\n');
     }
 
@@ -395,6 +596,58 @@ class WhisperOverlay {
         }
     }
 
+    updateAudioMeter(stats) {
+        if (!this.audioLevelBar) return;
+
+        const { peakDb, rmsDb, dynamicRange } = stats;
+
+        // Normalize dB to 0-100 scale for visualization
+        // Typical range: -40dB (very quiet) to 0dB (max)
+        const normalizeDb = (db) => {
+            // Map -60 to +12 dB to 0-100 scale
+            const normalized = Math.max(0, Math.min(100, ((db + 60) / 72) * 100));
+            return normalized;
+        };
+
+        const levelPercent = normalizeDb(rmsDb);
+        const peakPercent = normalizeDb(peakDb);
+
+        // Update visual bar
+        this.audioLevelBar.style.width = levelPercent + '%';
+
+        // Add color-coded feedback
+        let barColor = '#4CBF56'; // Green for good level
+        if (rmsDb < -40) {
+            barColor = '#FF6B6B'; // Red for too quiet
+        } else if (rmsDb > -10) {
+            barColor = '#FFB84D'; // Orange for too loud/risk of clipping
+        } else if (rmsDb > -5) {
+            barColor = '#FF6B6B'; // Red for clipping risk
+        }
+
+        this.audioLevelBar.style.backgroundColor = barColor;
+
+        // Add warning for problematic levels
+        if (rmsDb < -40) {
+            this.updateStatus('⚠️ Audio too quiet', 'warning');
+        } else if (rmsDb > -5) {
+            this.updateStatus('⚠️ Audio level may clip', 'warning');
+        }
+
+        // Optional: Log audio stats in console for debugging
+        if (this.isRecording) {
+            console.debug(`Audio: RMS=${rmsDb.toFixed(1)}dB, Peak=${peakDb.toFixed(1)}dB, Range=${dynamicRange.toFixed(1)}dB`);
+        }
+    }
+
+    handleChunkSkipped(data) {
+        if (data.reason === 'silence') {
+            console.debug(`Skipped silent chunk #${data.chunkId} (RMS: ${data.silenceInfo.rmsDb.toFixed(1)}dB)`);
+            // Optionally update UI - you could show a "silence detected" indicator
+            // this.updateStatus('Silence detected - skipped', 'info');
+        }
+    }
+
     clearTranscript() {
         this.transcriptData = [];
         this.transcriptDisplay.innerHTML = '';
@@ -413,6 +666,10 @@ class WhisperOverlay {
     }
 
     openSidebar() {
+        // Close advanced audio sidebar if open
+        if (this.advancedAudioSidebar.classList.contains('open')) {
+            this.closeAdvancedAudioSidebar();
+        }
         this.sidebar.classList.add('open');
         this.toggleSidebarBtn.classList.add('active');
     }
@@ -457,6 +714,91 @@ class WhisperOverlay {
         this.transcriptDisplay.style.fontSize = fontSize + 'px';
         if (window.electronAPI.setFontSize) {
             window.electronAPI.setFontSize(fontSize);
+        }
+    }
+
+    // ===== ADVANCED AUDIO SETTINGS SIDEBAR =====
+    toggleAdvancedAudioSidebar() {
+        // Close settings sidebar if open
+        if (this.sidebar.classList.contains('open')) {
+            this.closeSidebar();
+        }
+        // Toggle advanced audio sidebar
+        this.advancedAudioSidebar.classList.toggle('open');
+        this.loadAudioParameters();
+    }
+
+    closeAdvancedAudioSidebar() {
+        this.advancedAudioSidebar.classList.remove('open');
+    }
+
+    updateAudioParameterDisplay(paramId, value) {
+        const config = this.audioSliders[paramId];
+        if (!config) return;
+
+        // Format the display value based on parameter type
+        let displayValue;
+        if (paramId === 'confidenceThreshold') {
+            displayValue = `${Math.round(value * 100)}%`;
+        } else if (config.unit === '') {
+            displayValue = Math.round(value).toString();
+        } else {
+            displayValue = `${Math.round(value)} ${config.unit}`;
+        }
+
+        config.display.textContent = displayValue;
+    }
+
+    debouncedSaveAudioParameter(paramId, value) {
+        clearTimeout(this.audioParamDebounceTimer);
+        this.audioParamDebounceTimer = setTimeout(() => {
+            this.saveAudioParameter(paramId, value);
+        }, 500);
+    }
+
+    async saveAudioParameter(paramId, value) {
+        try {
+            const result = await window.electronAPI.setAudioParameter(paramId, value);
+            console.log('Audio parameter updated:', { paramId, value, result });
+        } catch (error) {
+            console.error('Error saving audio parameter:', error);
+        }
+    }
+
+    async resetAudioParameter(paramId) {
+        const config = this.audioSliders[paramId];
+        if (!config) return;
+
+        config.slider.value = config.default;
+        this.updateAudioParameterDisplay(paramId, config.default);
+        await this.saveAudioParameter(paramId, config.default);
+    }
+
+    async resetAllAudioParameters() {
+        const confirmed = confirm('Reset all audio parameters to defaults?');
+        if (!confirmed) return;
+
+        Object.keys(this.audioSliders).forEach(paramId => {
+            const config = this.audioSliders[paramId];
+            config.slider.value = config.default;
+            this.updateAudioParameterDisplay(paramId, config.default);
+            this.saveAudioParameter(paramId, config.default);
+        });
+    }
+
+    async loadAudioParameters() {
+        try {
+            const params = await window.electronAPI.getAllAudioParameters();
+
+            Object.keys(this.audioSliders).forEach(paramId => {
+                const config = this.audioSliders[paramId];
+                const value = params[paramId] ?? config.default;
+
+                config.slider.value = value;
+                this.updateAudioParameterDisplay(paramId, value);
+            });
+        } catch (error) {
+            console.error('Error loading audio parameters:', error);
         }
     }
 

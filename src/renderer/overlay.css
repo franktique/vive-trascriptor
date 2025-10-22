@@ -232,8 +232,31 @@ body {
     border-left: 2px solid var(--transcript-border);
     padding-left: 8px;
     animation: fadeIn 0.3s ease-in-out;
+    transition: all 0.2s ease;
 }
 
+/* Confidence level styling */
+.transcript-line.confidence-high {
+    border-left-color: rgba(72, 187, 120, 0.9);
+    opacity: 1;
+}
+
+.transcript-line.confidence-medium {
+    border-left-color: rgba(237, 137, 54, 0.8);
+    opacity: 0.95;
+}
+
+.transcript-line.confidence-low {
+    border-left-color: rgba(245, 101, 101, 0.7);
+    opacity: 0.85;
+}
+
+.transcript-line.confidence-very-low {
+    border-left-color: rgba(245, 101, 101, 0.5);
+    opacity: 0.7;
+}
+
+/* Fallback for legacy low-confidence class */
 .transcript-line.low-confidence {
     border-left-color: var(--transcript-border-low);
     opacity: 0.8;
@@ -637,5 +660,211 @@ body {
     .sidebar.open {
         width: 100%;
         max-width: 320px;
+    }
+}
+
+/* ============================================
+   Audio Parameter Styling (in sidebar)
+   ============================================ */
+
+.audio-parameter-group {
+    margin-bottom: 16px;
+    padding: 12px;
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.audio-parameter-group:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.audio-parameter-group.critical-impact {
+    border-left: 3px solid rgba(255, 149, 0, 0.6);
+}
+
+.audio-parameter-group.medium-impact {
+    border-left: 3px solid rgba(79, 172, 254, 0.6);
+}
+
+.audio-parameter-group.low-impact {
+    border-left: 3px solid rgba(52, 199, 89, 0.6);
+}
+
+.parameter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    gap: 8px;
+}
+
+.parameter-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+}
+
+.parameter-title label {
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.3;
+}
+
+.impact-badge {
+    font-size: 10px;
+    padding: 3px 6px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.reset-btn {
+    padding: 4px 8px;
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--text-muted);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.reset-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.reset-btn:active {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.parameter-description {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 9px;
+    line-height: 1.4;
+}
+
+.slider-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 7px;
+}
+
+.slider-min, .slider-max {
+    font-size: 10px;
+    color: var(--text-muted);
+    min-width: 35px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.audio-slider {
+    flex: 1;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(79, 172, 254, 0.3);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+}
+
+.audio-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #4facff;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    box-shadow: 0 2px 4px rgba(79, 172, 254, 0.4);
+    border: 2px solid rgba(255, 255, 255, 0.9);
+}
+
+.audio-slider::-webkit-slider-thumb:hover {
+    background: #68b5ff;
+    box-shadow: 0 2px 6px rgba(79, 172, 254, 0.6);
+    transform: scale(1.15);
+}
+
+.audio-slider::-moz-range-track {
+    background: transparent;
+    border: none;
+}
+
+.audio-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #4facff;
+    cursor: pointer;
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    transition: all 0.15s ease;
+    box-shadow: 0 2px 4px rgba(79, 172, 254, 0.4);
+}
+
+.audio-slider::-moz-range-thumb:hover {
+    background: #68b5ff;
+    box-shadow: 0 2px 6px rgba(79, 172, 254, 0.6);
+    transform: scale(1.15);
+}
+
+.slider-value-display {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 5px;
+}
+
+.slider-value-display span {
+    font-size: 11px;
+    font-weight: 500;
+    color: #4facff;
+    background-color: rgba(79, 172, 254, 0.15);
+    padding: 3px 7px;
+    border-radius: 3px;
+}
+
+/* Advanced Audio reset all button */
+#advanced-reset-all-btn {
+    width: 100%;
+    padding: 10px 12px;
+    margin-top: 8px;
+    background-color: rgba(255, 149, 0, 0.15);
+    border: 1px solid rgba(255, 149, 0, 0.3);
+    color: rgba(255, 149, 0, 0.9);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+#advanced-reset-all-btn:hover {
+    background-color: rgba(255, 149, 0, 0.25);
+    border-color: rgba(255, 149, 0, 0.5);
+    color: #ffb547;
+}
+
+#advanced-reset-all-btn:active {
+    background-color: rgba(255, 149, 0, 0.35);
+}
+
+/* Responsive adjustments for sidebar */
+@media (max-width: 600px) {
+    .audio-parameter-group {
+        margin-bottom: 16px;
+        padding: 12px;
     }
 }

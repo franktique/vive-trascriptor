@@ -15,26 +15,26 @@ class ControlPanel {
     initializeElements() {
         // Theme controls
         this.themeSelect = document.getElementById('theme-select');
-        
+
         // Opacity controls
         this.opacitySlider = document.getElementById('opacity-slider');
         this.opacityValue = document.getElementById('opacity-value');
-        
+
         // Font controls
         this.fontSizeSlider = document.getElementById('font-size');
         this.fontSizeValue = document.getElementById('font-size-value');
-        
-        
+
+
         // Audio controls
         this.microphoneSelect = document.getElementById('microphone-select');
         this.sensitivitySlider = document.getElementById('sensitivity');
         this.sensitivityValue = document.getElementById('sensitivity-value');
         this.audioLevelBar = document.getElementById('audio-level-bar');
-        
+
         // Whisper settings
         this.modelSelect = document.getElementById('model-select');
         this.languageSelect = document.getElementById('language-select');
-        
+
         // Model download controls
         this.modelStatus = document.getElementById('model-status');
         this.modelStatusText = document.getElementById('model-status-text');
@@ -45,16 +45,75 @@ class ControlPanel {
         this.downloadSpeed = document.getElementById('download-speed');
         this.downloadPercent = document.getElementById('download-percent');
         this.downloadEta = document.getElementById('download-eta');
-        
+
         // Export controls
         this.saveTranscriptBtn = document.getElementById('save-transcript');
         this.clearTranscriptBtn = document.getElementById('clear-transcript');
         this.exportFormat = document.getElementById('export-format');
-        
+
         // Stats
         this.totalWordsEl = document.getElementById('total-words');
         this.totalTimeEl = document.getElementById('total-time');
         this.avgConfidenceEl = document.getElementById('avg-confidence');
+
+        // Modal controls (Note: modal is now in overlay window, not control panel)
+        // Modal elements are accessed from overlay.js instead
+
+        // Audio parameter sliders
+        this.audioSliders = {
+            silenceThreshold: {
+                slider: document.getElementById('silence-threshold-slider'),
+                display: document.getElementById('silence-threshold-value'),
+                resetBtn: document.querySelector('[data-param="silenceThreshold"]'),
+                default: -40,
+                unit: 'dB'
+            },
+            normalizationTarget: {
+                slider: document.getElementById('normalization-target-slider'),
+                display: document.getElementById('normalization-target-value'),
+                resetBtn: document.querySelector('[data-param="normalizationTarget"]'),
+                default: -20,
+                unit: 'dB'
+            },
+            confidenceThreshold: {
+                slider: document.getElementById('confidence-threshold-slider'),
+                display: document.getElementById('confidence-threshold-value'),
+                resetBtn: document.querySelector('[data-param="confidenceThreshold"]'),
+                default: 0.6,
+                unit: '%'
+            },
+            highPassCutoff: {
+                slider: document.getElementById('high-pass-cutoff-slider'),
+                display: document.getElementById('high-pass-cutoff-value'),
+                resetBtn: document.querySelector('[data-param="highPassCutoff"]'),
+                default: 300,
+                unit: 'Hz'
+            },
+            agcTargetLevel: {
+                slider: document.getElementById('agc-target-level-slider'),
+                display: document.getElementById('agc-target-level-value'),
+                resetBtn: document.querySelector('[data-param="agcTargetLevel"]'),
+                default: -20,
+                unit: 'dB'
+            },
+            maxParallelChunks: {
+                slider: document.getElementById('max-parallel-chunks-slider'),
+                display: document.getElementById('max-parallel-chunks-value'),
+                resetBtn: document.querySelector('[data-param="maxParallelChunks"]'),
+                default: 2,
+                unit: ''
+            },
+            vadEnergyThreshold: {
+                slider: document.getElementById('vad-energy-threshold-slider'),
+                display: document.getElementById('vad-energy-threshold-value'),
+                resetBtn: document.querySelector('[data-param="vadEnergyThreshold"]'),
+                default: -35,
+                unit: 'dB'
+            }
+        };
+
+        // Store for debouncing slider updates
+        this.sliderUpdateTimers = {};
     }
 
     setupEventListeners() {
@@ -166,6 +225,28 @@ class ControlPanel {
                 this.updateRecordingStatus({ message: `Download failed: ${error.error}`, type: 'error' });
             });
         }
+
+        // Audio parameter sliders (Modal is now in overlay.js)
+        Object.keys(this.audioSliders).forEach(paramId => {
+            const config = this.audioSliders[paramId];
+
+            // Slider change event with debouncing
+            config.slider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                this.updateAudioParameterDisplay(paramId, value);
+                this.debouncedSaveAudioParameter(paramId, value);
+            });
+
+            // Reset button
+            config.resetBtn.addEventListener('click', () => {
+                this.resetAudioParameter(paramId);
+            });
+        });
+
+        // Reset all button in modal
+        this.modalResetAllBtn.addEventListener('click', () => {
+            this.resetAllAudioParameters();
+        });
     }
 
     async loadSettings() {
@@ -459,34 +540,164 @@ class ControlPanel {
 
     updateDownloadProgress(progress) {
         console.log('Download progress update:', progress);
-        
+
         // Update progress bar
         this.downloadProgressBar.style.width = `${progress.percent}%`;
         this.downloadPercent.textContent = `${Math.round(progress.percent)}%`;
-        
+
         // Update download speed
         if (progress.speed) {
             const speedMB = (progress.speed / 1024 / 1024).toFixed(1);
             this.downloadSpeed.textContent = `${speedMB} MB/s`;
         }
-        
+
         // Update ETA
         if (progress.eta) {
             const minutes = Math.floor(progress.eta / 60);
             const seconds = Math.floor(progress.eta % 60);
             this.downloadEta.textContent = `${minutes}:${seconds.toString().padStart(2, '0')} remaining`;
         }
-        
+
         // Update status text
         if (progress.status) {
             this.downloadStatus.textContent = progress.status;
         }
-        
+
         // Completion will be handled by the dedicated event handler
+    }
+
+    // ============================================
+    // Advanced Audio Processing Methods
+    // (Modal is now in overlay.js)
+    // ============================================
+
+    updateAudioParameterDisplay(paramId, value) {
+        const config = this.audioSliders[paramId];
+        if (!config) return;
+
+        // Format the display value based on parameter type
+        let displayValue;
+        if (paramId === 'confidenceThreshold') {
+            displayValue = `${Math.round(value * 100)}%`;
+        } else if (config.unit === '') {
+            displayValue = Math.round(value).toString();
+        } else {
+            displayValue = `${Math.round(value)} ${config.unit}`;
+        }
+
+        config.display.textContent = displayValue;
+    }
+
+    debouncedSaveAudioParameter(paramId, value) {
+        // Clear existing timer for this parameter
+        if (this.sliderUpdateTimers[paramId]) {
+            clearTimeout(this.sliderUpdateTimers[paramId]);
+        }
+
+        // Set new timer (debounce for 500ms)
+        this.sliderUpdateTimers[paramId] = setTimeout(() => {
+            this.saveAudioParameter(paramId, value);
+        }, 500);
+    }
+
+    async saveAudioParameter(paramId, value) {
+        try {
+            if (window.electronAPI.setAudioParameter) {
+                await window.electronAPI.setAudioParameter(paramId, value);
+            } else {
+                // Fallback to regular settings
+                await window.electronAPI.setSetting(`audioParam_${paramId}`, value);
+            }
+            console.log(`Audio parameter saved: ${paramId} = ${value}`);
+        } catch (error) {
+            console.error(`Error saving audio parameter ${paramId}:`, error);
+        }
+    }
+
+    resetAudioParameter(paramId) {
+        const config = this.audioSliders[paramId];
+        if (!config) return;
+
+        // Reset slider to default value
+        config.slider.value = config.default;
+        this.updateAudioParameterDisplay(paramId, config.default);
+        this.saveAudioParameter(paramId, config.default);
+    }
+
+    resetAllAudioParameters() {
+        if (!confirm('Reset all audio parameters to defaults?')) {
+            return;
+        }
+
+        Object.keys(this.audioSliders).forEach(paramId => {
+            this.resetAudioParameter(paramId);
+        });
+
+        this.updateRecordingStatus({
+            message: 'All audio parameters reset to defaults',
+            type: 'success'
+        });
+    }
+
+    async loadAudioParameters() {
+        try {
+            for (const paramId in this.audioSliders) {
+                const config = this.audioSliders[paramId];
+                let value;
+
+                // Try to load from custom IPC handler first, then fallback to settings
+                if (window.electronAPI.getAudioParameter) {
+                    try {
+                        value = await window.electronAPI.getAudioParameter(paramId);
+                    } catch (err) {
+                        value = await window.electronAPI.getSetting(`audioParam_${paramId}`);
+                    }
+                } else {
+                    value = await window.electronAPI.getSetting(`audioParam_${paramId}`);
+                }
+
+                // Use default if not found
+                if (value === undefined || value === null) {
+                    value = config.default;
+                }
+
+                // Update slider and display
+                config.slider.value = value;
+                this.updateAudioParameterDisplay(paramId, value);
+            }
+
+            // Advanced settings are now in a modal, no need to load visibility state
+        } catch (error) {
+            console.error('Error loading audio parameters:', error);
+        }
+    }
+
+    openTestingGuide() {
+        // Open testing guide - could open in browser or show modal
+        const guideUrl = 'https://github.com/franktique/vive-translator/blob/advanced-features/docs/audio-parameter-testing-guide.md';
+        console.log('Opening testing guide:', guideUrl);
+
+        // Try to open externally
+        if (window.electronAPI && window.electronAPI.openExternal) {
+            window.electronAPI.openExternal(guideUrl).catch(err => {
+                console.error('Failed to open guide:', err);
+                this.updateRecordingStatus({
+                    message: 'Could not open testing guide. Check console for URL.',
+                    type: 'warning'
+                });
+            });
+        } else {
+            this.updateRecordingStatus({
+                message: 'Testing guide available at: docs/audio-parameter-testing-guide.md',
+                type: 'info'
+            });
+        }
     }
 }
 
 // Initialize control panel when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    new ControlPanel();
+    const controlPanel = new ControlPanel();
+    // Load audio parameters after initialization
+    controlPanel.loadAudioParameters();
 });

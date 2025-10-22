@@ -57,17 +57,34 @@ Preload Script (src/preload/preload.js)
 ## Current Implementation Status
 
 ### Completed Systems
-- Transparent overlay with custom window controls
-- Settings persistence and real-time opacity adjustment  
-- SRT file generation with proper timestamp formatting
-- Mock transcription system for UI testing
-- Cross-platform permission handling
-- Complete UI/UX for both windows
+- ✅ Transparent overlay with custom window controls
+- ✅ Settings persistence and real-time opacity adjustment
+- ✅ SRT file generation with proper timestamp formatting
+- ✅ Real-time audio capture and streaming with `node-record-lpcm16`
+- ✅ Whisper integration with `nodejs-whisper` for live transcription
+- ✅ Advanced audio processing pipeline with buffer management
+- ✅ GPU acceleration detection and optimization
+- ✅ Multilingual support with automatic language detection
+- ✅ Punctuation and capitalization enhancement
+- ✅ Cross-platform permission handling
+- ✅ Complete UI/UX for both windows
+- ✅ Experimental advanced features (speaker diarization, grammar correction, vocabulary management, emotion analysis)
 
-### Integration Points (To Be Implemented)
-- **Audio Capture**: `node-record-lpcm16` integration for microphone input
-- **Whisper Processing**: `nodejs-whisper` integration for actual transcription
-- **Real-time Pipeline**: Audio chunking and streaming transcription
+### Advanced Features (Branch: `advanced-features`)
+This branch includes sophisticated audio processing and AI capabilities:
+- **AudioManager**: Real-time microphone capture with event-driven architecture
+- **BufferManager**: Circular buffering with advanced VAD, AGC, and filtering
+- **WhisperProcessor**: Queue-based transcription with model caching and parallel processing
+- **GPUDetector**: Automatic GPU capability detection (NVIDIA, AMD, Metal, Vulkan)
+- **LanguageDetector**: 15+ language support with automatic detection
+- **PunctuationProcessor**: Intelligent punctuation and capitalization enhancement
+- **Experimental Features**: Speaker diarization, grammar correction, vocabulary management, emotion analysis
+
+### Documentation References
+- 📖 **README.md**: User guide and feature overview
+- 📚 **docs/advanced-features.md**: Deep dive into audio processing and AI features
+- 📋 **docs/plan.md**: Development roadmap and implementation details
+- 🔧 **CLAUDE.md** (this file): Developer technical reference
 
 ### Critical Implementation Notes
 
@@ -118,3 +135,57 @@ SRT generation happens in the overlay renderer process but file saving uses main
 - `Ctrl+Space`: Toggle recording (control panel)
 
 When implementing real Whisper integration, replace the mock transcription in `overlay.js` and connect the placeholder IPC handlers in `main.js` to actual audio processing pipeline.
+
+## Documentation Guide
+
+This repository includes comprehensive documentation for different audiences:
+
+### For End Users
+📖 **[README.md](./README.md)** - Start here!
+- Feature overview and highlights
+- Installation and setup instructions
+- Usage guide with keyboard shortcuts
+- Troubleshooting and support
+- Configuration reference
+
+### For Advanced Users
+📚 **[docs/advanced-features.md](./docs/advanced-features.md)**
+- Audio processing pipeline deep dive
+- GPU acceleration configuration
+- Multilingual support details
+- Advanced feature usage (experimental)
+- Performance tuning guide
+- Complete configuration reference
+
+### For Developers
+🔧 **CLAUDE.md** (this file)
+- Architecture and technical patterns
+- Development setup and commands
+- File organization and IPC structure
+- Implementation notes and considerations
+- Critical system patterns
+
+### Project Planning
+📋 **[docs/plan.md](./docs/plan.md)**
+- Development roadmap
+- Phase-by-phase implementation details
+- Project timeline and milestones
+- Technical architecture
+- Completed systems and future features
+
+### Branch-Specific Documentation
+This `advanced-features` branch includes:
+- **Advanced Audio Processing**: Sophisticated buffer management with VAD, AGC, high-pass filtering
+- **GPU Acceleration**: Automatic NVIDIA CUDA, AMD Radeon, Apple Metal, and Vulkan detection
+- **Multilingual AI**: 15+ language support with automatic detection
+- **Post-Processing**: Intelligent punctuation, capitalization, and text enhancement
+- **Experimental AI**: Speaker diarization, grammar correction, vocabulary management, emotion analysis
+
+## Quick Links
+
+- 🚀 **Getting Started**: See [README.md](./README.md#-running-the-application)
+- 🎯 **Features**: See [README.md](./README.md#-key-features)
+- ⚙️ **Configuration**: See [docs/advanced-features.md](./docs/advanced-features.md#configuration-reference)
+- 🔧 **Troubleshooting**: See [README.md](./README.md#-troubleshooting)
+- 📊 **Performance**: See [docs/advanced-features.md](./docs/advanced-features.md#performance-tuning)
+- 🧪 **Experimental Features**: See [docs/advanced-features.md](./docs/advanced-features.md#experimental-ai-features)
