@@ -25,6 +25,7 @@ class WhisperOverlay {
         // Window controls
         this.toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
         this.closeSidebarBtn = document.getElementById('close-sidebar-btn');
+        this.clearScreenBtn = document.getElementById('clear-screen-btn');
         this.minimizeBtn = document.getElementById('minimize-btn');
         this.closeBtn = document.getElementById('close-btn');
 
@@ -141,6 +142,10 @@ class WhisperOverlay {
             this.closeSidebar();
         });
 
+        this.clearScreenBtn.addEventListener('click', () => {
+            this.clearScreenFromToolbar();
+        });
+
         this.minimizeBtn.addEventListener('click', () => {
             window.electronAPI.minimizeOverlay();
         });
@@ -217,6 +222,10 @@ class WhisperOverlay {
                 }
             } else if (event.key === 'Enter' && event.metaKey) {
                 this.saveTranscript();
+            } else if (event.key === 'c' && event.shiftKey && (event.ctrlKey || event.metaKey)) {
+                // Ctrl+Shift+C (Windows/Linux) or Cmd+Shift+C (macOS)
+                event.preventDefault();
+                this.clearScreenFromToolbar();
             }
         });
 
@@ -654,6 +663,11 @@ class WhisperOverlay {
         this.currentText.textContent = '';
         this.srtCounter = 1;
         this.updateStatus('Transcript cleared', 'info');
+    }
+
+    clearScreenFromToolbar() {
+        // Clear transcript from toolbar button or keyboard shortcut
+        this.clearTranscript();
     }
 
     // ===== SIDEBAR MANAGEMENT =====

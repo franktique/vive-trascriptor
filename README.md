@@ -148,7 +148,8 @@ npm run build
 |----------|--------|
 | `ESC` | Toggle recording on/off |
 | `Cmd+Enter` (macOS) | Save transcript |
-| `Cmd+Shift+N` | Clear transcript |
+| `Ctrl+Shift+C` (Windows/Linux) | Clear transcript |
+| `Cmd+Shift+C` (macOS) | Clear transcript |
 
 #### Control Panel
 | Shortcut | Action |

@@ -68,6 +68,7 @@ Preload Script (src/preload/preload.js)
 - ✅ Punctuation and capitalization enhancement
 - ✅ Cross-platform permission handling
 - ✅ Complete UI/UX for both windows
+- ✅ Toolbar clear button for quick transcript clearing during testing
 - ✅ Experimental advanced features (speaker diarization, grammar correction, vocabulary management, emotion analysis)
 
 ### Advanced Features (Branch: `advanced-features`)
@@ -131,6 +132,7 @@ SRT generation happens in the overlay renderer process but file saving uses main
 ### Keyboard Shortcuts
 - `Escape`: Toggle recording in overlay window
 - `Cmd+Enter`: Save transcript
+- `Ctrl+Shift+C` (Windows/Linux) / `Cmd+Shift+C` (macOS): Clear transcript
 - `Cmd+,`: Show controls (macOS menu)
 - `Ctrl+Space`: Toggle recording (control panel)
 
