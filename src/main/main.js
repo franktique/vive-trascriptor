@@ -570,12 +570,12 @@ ipcMain.handle('stop-transcription', async () => {
 ipcMain.handle('pause-transcription', async () => {
   try {
     console.log('Pausing transcription...');
-    
+
     if (audioManager && isTranscribing) {
       audioManager.pauseRecording();
-      sendToRenderers('transcription-status', { 
-        message: 'Transcription paused', 
-        type: 'paused' 
+      sendToRenderers('transcription-status', {
+        message: 'Transcription paused',
+        type: 'paused'
       });
       return true;
     }
@@ -585,6 +585,30 @@ ipcMain.handle('pause-transcription', async () => {
     console.error('Error pausing transcription:', error);
     sendToRenderers('transcription-error', {
       type: 'pause-failed',
+      message: error.message
+    });
+    return false;
+  }
+});
+
+ipcMain.handle('resume-transcription', async () => {
+  try {
+    console.log('Resuming transcription...');
+
+    if (audioManager && isTranscribing) {
+      audioManager.resumeRecording();
+      sendToRenderers('transcription-status', {
+        message: 'Transcription resumed',
+        type: 'recording'
+      });
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error('Error resuming transcription:', error);
+    sendToRenderers('transcription-error', {
+      type: 'resume-failed',
       message: error.message
     });
     return false;
