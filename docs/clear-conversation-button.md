@@ -222,6 +222,15 @@ This workflow enables efficient parameter tuning and A/B testing without needing
 
 ---
 
+## Bug Fixes During Implementation
+
+### Resume-Transcription Handler
+- **Issue**: Missing `resume-transcription` IPC handler in main.js
+- **Impact**: Users could not resume recording after pausing, got errors
+- **Fix**: Added complete handler that mirrors pause-transcription pattern
+- **Status**: ✅ Fixed and committed (commit 9ead07a)
+- **Affects**: Pause/clear/resume workflow now works correctly
+
 ## Future Enhancements (Out of Scope)
 
 - [ ] Add optional confirmation dialog (settable in preferences)
